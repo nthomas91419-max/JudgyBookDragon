@@ -87,10 +87,17 @@ function scoreBook(b){
  if(reader.pace){let d=norm(reader.pace)===norm(b.pace);add(d?5:-1,d?"pace":null)}
  if(reader.series){add(norm(reader.series)===norm(b.series)?4:-1,norm(reader.series)===norm(b.series)?"series commitment":null)}
  if(reader.ending){let e=norm(b.ending),w=norm(reader.ending),ok=e===w||(w==="hea"&&["hea","hfn","resolved","hopeful"].includes(e))||(w==="bittersweet"&&["bittersweet","hopeful"].includes(e))||(w==="tragic"&&["tragic","bittersweet"].includes(e))||(w==="ambiguous"&&["ambiguous","cliffhanger"].includes(e));add(ok?6:-2,ok?"ending":null)}
- score=Math.max(1,Math.min(99,Math.round(score)));
- return{...b,score,why:[...new Set(why)].slice(0,4)}
+ const rawScore=score;
+ const displayScore=Math.max(1,Math.min(99,Math.round(score)));
+ return{...b,score:displayScore,rawScore,why:[...new Set(why)].slice(0,4)}
 }
-function finish(){ranked=books.map(scoreBook).sort((a,b)=>b.score-a.score);show("results");renderResults()}
+function finish(){ranked=books.map(scoreBook).sort((a,b)=>{
+ const rawDiff=(b.rawScore??b.score)-(a.rawScore??a.score);
+ if(Math.abs(rawDiff)>0.0001)return rawDiff;
+ const whyDiff=(b.why?.length||0)-(a.why?.length||0);
+ if(whyDiff)return whyDiff;
+ return String(a.title).localeCompare(String(b.title));
+});show("results");renderResults()}
 function pickWild(exclude){let pool=ranked.filter(b=>!exclude.includes(b.title)&&b.score>=55).slice(0,Math.min(15,ranked.length));return pool[(wildOffset+Math.floor(Math.random()*Math.max(1,pool.length)))%Math.max(1,pool.length)]||ranked.find(b=>!exclude.includes(b.title))}
 function stockText(b){return b.inStock?`<span class="stock">📚 IN THE HOARD — AVAILABLE TODAY</span>`:`<span class="stock tbr">🐉 NOT IN TODAY'S HOARD — ADD TO YOUR TBR</span>`}
 function bookBlock(label,b){if(!b)return"";return `<div class="runner"><div class="runnerPct">${b.score}% MATCH • ${label}</div><b>${esc(b.title)}</b><br><span class="tiny">by ${esc(b.author)} • ${esc(b.subgenre||b.publishing)}</span><br>${stockText(b)}</div>`}
