@@ -98,21 +98,35 @@ function finish(){ranked=books.map(scoreBook).sort((a,b)=>{
  if(whyDiff)return whyDiff;
  return String(a.title).localeCompare(String(b.title));
 });show("results");renderResults()}
-function pickWild(exclude){let pool=ranked.filter(b=>!exclude.includes(b.title)&&b.score>=55).slice(0,Math.min(15,ranked.length));return pool[(wildOffset+Math.floor(Math.random()*Math.max(1,pool.length)))%Math.max(1,pool.length)]||ranked.find(b=>!exclude.includes(b.title))}
+function pickWild(exclude){
+ // Wild Card comes from active Dragon Catalog entries that are NOT in booth inventory.
+ // `books` is already filtered to ACTIVE=YES by rowsToBooks().
+ const excluded=new Set(exclude.map(norm));
+ const pool=books.filter(b=>!b.inStock&&!excluded.has(norm(b.title)));
+ if(!pool.length)return null;
+ return pool[Math.floor(Math.random()*pool.length)];
+}
 function stockText(b){return b.inStock?`<span class="stock">📚 IN THE HOARD — AVAILABLE TODAY</span>`:`<span class="stock tbr">🐉 NOT IN TODAY'S HOARD — ADD TO YOUR TBR</span>`}
 function bookBlock(label,b){if(!b)return"";return `<div class="runner"><div class="runnerPct">${b.score}% MATCH • ${label}</div><b>${esc(b.title)}</b><br><span class="tiny">by ${esc(b.author)} • ${esc(b.subgenre||b.publishing)}</span><br>${stockText(b)}</div>`}
 function renderResults(){
- let soulmate=ranked[0],inHoard=ranked.find(b=>b.inStock),wild=pickWild([soulmate?.title,inHoard?.title].filter(Boolean));
+ let soulmate=ranked[0];
+ if(!soulmate){document.getElementById("mainMatch").textContent="No active books available.";return;}
+ // Select the best DIFFERENT in-stock book, even if the soulmate is also in stock.
+ let inHoard=ranked.find(b=>b.inStock&&norm(b.title)!==norm(soulmate.title));
+ let wild=pickWild([soulmate.title,inHoard?.title].filter(Boolean));
  document.getElementById("dnaTitle").textContent=dnaName();
  document.getElementById("mainMatch").innerHTML=`<div class="match">${soulmate.score}% MATCH • 🔥 YOUR BOOKISH SOULMATE</div><div class="bookTitle">${esc(soulmate.title)}</div><div class="author">by ${esc(soulmate.author)}</div><div class="tags">${[soulmate.subgenre,soulmate.romance,`Spice ${soulmate.spice}/5`].filter(Boolean).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}</div>${stockText(soulmate)}<p style="line-height:1.55"><b>Why Drago chose it:</b> ${soulmate.why.length?esc(soulmate.why.join(", ")):"your overall chaos profile"} lined up unusually well. Tiny Dragon is feeling smug.</p>`;
  let dna=topDNA();document.getElementById("dna").innerHTML=dna.map(([k,v,p])=>`<div class="dnaRow"><div class="dnaLabel"><span>${pretty(k)}</span><span>${p}%</span></div><div class="meter"><span style="width:${p}%"></span></div></div>`).join("");
- let extras=[];if(inHoard&&inHoard.title!==soulmate.title)extras.push(bookBlock("BEST IN THE BOOTH",inHoard));else if(inHoard)extras.push(`<div class="runner"><div class="runnerPct">BEST IN THE BOOTH</div><span class="tiny">Your soulmate is already here. Drago enjoys efficiency.</span></div>`);
- extras.push(bookBlock("🐉 WILD CARD",wild));document.getElementById("runners").innerHTML=extras.join("");
+ let extras=[];
+ extras.push(inHoard?bookBlock("BEST IN THE BOOTH",inHoard):`<div class="runner"><div class="runnerPct">BEST IN THE BOOTH</div><span class="tiny">No other in-stock match is available right now.</span></div>`);
+ extras.push(wild?bookBlock("🐉 WILD CARD • OUTSIDE THE HOARD",wild):`<div class="runner"><div class="runnerPct">🐉 WILD CARD</div><span class="tiny">No additional out-of-stock catalog books are available.</span></div>`);
+ document.getElementById("runners").innerHTML=extras.join("");
 }
+
 function topDNA(){let vals=[["fantasy",reader.fantasy],["romance",reader.romance],["dark",Math.max(0,reader.dark)],["cozy",reader.cozy],["humor",reader.humor],["emotional",Math.max(0,reader.emotional)],["action",reader.action],["mystery",reader.mystery],["scifi",reader.scifi],["classic",reader.classic]].sort((a,b)=>b[1]-a[1]).slice(0,6),m=Math.max(...vals.map(x=>x[1]),1);return vals.map(([k,v])=>[k,v,Math.round(v/m*100)])}
 function dnaName(){let t=topDNA().slice(0,2).map(x=>x[0]);const n={fantasy:"MAGIC-CHASING",romance:"KICK-YOUR-FEET",dark:"DANGEROUSLY CURIOUS",cozy:"COZY CHAOS",humor:"BANTER-POWERED",emotional:"EMOTIONAL-DAMAGE",action:"CHAOS-SEEKING",mystery:"CLUE-HOARDING",scifi:"REALITY-ESCAPING",classic:"OLD-SOUL"};return `THE ${n[t[0]]||"BOOKISH"} ${n[t[1]]||"READER"}`}
 function pretty(s){return({fantasy:"Fantasy & Magic",romance:"Romance",dark:"Dark Vibes",cozy:"Cozy",humor:"Humor & Banter",emotional:"Emotional Damage",action:"Action",mystery:"Mystery",scifi:"Sci-Fi",ya:"YA Energy",classic:"Classic Energy"})[s]||s}
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function rerollWild(){wildOffset+=3;renderResults()}
+function rerollWild(){renderResults()}
 function restart(){show("home");window.scrollTo({top:0,behavior:"smooth"})}
 </script></body></html>
